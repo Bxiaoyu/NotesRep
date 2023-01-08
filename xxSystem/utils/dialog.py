@@ -138,5 +138,30 @@ class ProxyDialog(QDialog):
         self.close()
 
 
+class LogDialog(QDialog):
+    def __init__(self, asin, *args, **kwargs):
+        super(LogDialog, self).__init__(*args, **kwargs)
+        self.asin = asin
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle("日志记录")
+        self.resize(500, 400)
+        layout = QVBoxLayout()
+        text_edit = QTextEdit()
+        text_edit.setText("")
+        layout.addWidget(text_edit)
+        self.setLayout(layout)
+
+        # 读取日志并展示
+        # content = LOGGER.get_log(self.asin)
+        log_file_path = os.path.join("log", f"{self.asin}.log")
+        if not os.path.exists(log_file_path):
+            return
+
+        with open(log_file_path, mode='r', encoding='utf-8') as f:
+            content = f.read()
+        text_edit.setText(content)
+
 if __name__ == "__main__":
     pass

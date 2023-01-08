@@ -1,3 +1,10 @@
 [
-  ["B08166SLDF", "AMD Ryzen 5 5600x 6-core, 12-Thread Unlocked Desktop Processor with Wraith Stealth Cooler", "https://www.amazon.com/gp/offer-listing/B08166SLDF/ref=dp_olp_all_mbc?ie=UTF8&condition=new", 300.0, 0, 166, 1, 5]
+  ["B08166SLDF", "AMD Ryzen 5 5600x 6-core, 12-Thread Unlocked Desktop Processor with Wraith Stealth Cooler",
+    "https://www.amazon.com/gp/offer-listing/B08166SLDF/ref=dp_olp_all_mbc?ie=UTF8&condition=new", 300.0, 0, 166, 1, 5],
+  ["B23167SLDF", "AMD Ryzen 5 5600x 6-core, 12-Thread Unlocked Desktop Processor with Wraith Stealth Cooler",
+    "https://www.amazon.com/gp/offer-listing/B08166SLDF/ref=dp_olp_all_mbc?ie=UTF8&condition=new", 400.0, 0, 16, 1, 5],
+  ["D08188SMBC", "AMD Ryzen 5 5600x 6-core, 12-Thread Unlocked Desktop Processor with Wraith Stealth Cooler",
+    "https://www.amazon.com/gp/offer-listing/B08166SLDF/ref=dp_olp_all_mbc?ie=UTF8&condition=new", 350.0, 0, 6, 1, 5],
+  ["B08366SLCC", "AMD Ryzen 5 5600x 6-core, 12-Thread Unlocked Desktop Processor with Wraith Stealth Cooler",
+    "https://www.amazon.com/gp/offer-listing/B08166SLDF/ref=dp_olp_all_mbc?ie=UTF8&condition=new", 3000.0, 0, 11, 1, 5]
 ]

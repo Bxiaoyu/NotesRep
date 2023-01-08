@@ -391,6 +391,16 @@ class MainWindow(QWidget):
         :return:
         """
         # 1. 为每一行创建一个线程去执行（所有线程的记录）
+        from utils.scheduler import SCHEDULER
+
+        SCHEDULER.start(
+            self,
+            BASE_DIR,
+            self.task_start_callback,
+            self.task_stop_callback,
+            self.task_counter_callback,
+            self.task_error_counter_callback,
+        )
         # 2. 执行中
         self.update_status_message("执行中")
 
@@ -400,7 +410,8 @@ class MainWindow(QWidget):
         :return:
         """
         # 1. 执行中的线程逐一停止
-
+        from utils.scheduler import SCHEDULER
+        SCHEDULER.stop()
         # 2. 更新状态
         self.update_status_message("正在终止 1/100")
 
@@ -412,6 +423,38 @@ class MainWindow(QWidget):
         """
         self.label_status.setText(message)
         self.label_status.repaint()
+
+    def task_start_callback(self, row_index):
+        # 对表格中的数据进行数据更新
+        cell_status = QTableWidgetItem(STATUS_MAPPING[2])
+        cell_status.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        self.table_widget.setItem(row_index, 6, cell_status)
+
+    def task_stop_callback(self, row_index):
+        # 对表格中的数据进行数据更新
+        cell_status = QTableWidgetItem(STATUS_MAPPING[1])
+        cell_status.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        self.table_widget.setItem(row_index, 6, cell_status)
+
+    def task_counter_callback(self, row_index):
+        # 原有次数+1
+        old_count = self.table_widget.item(row_index, 4).text().strip()
+        new_count = int(old_count) + 1
+
+        # 对表格中的数据进行数据更新
+        cell_status = QTableWidgetItem(str(new_count))
+        cell_status.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        self.table_widget.setItem(row_index, 4, cell_status)
+
+    def task_error_counter_callback(self, row_index):
+        # 原有次数+1
+        old_count = self.table_widget.item(row_index, 5).text().strip()
+        new_count = int(old_count) + 1
+
+        # 对表格中的数据进行数据更新
+        cell_status = QTableWidgetItem(str(new_count))
+        cell_status.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        self.table_widget.setItem(row_index, 5, cell_status)
 
     @Slot(int, str, str, str)
     def init_success_callback(self, row_index, asin, title, url):

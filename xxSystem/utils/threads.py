@@ -9,6 +9,7 @@
 """
 import requests
 from bs4 import BeautifulSoup
+import time
 from PySide6.QtCore import QThread, Signal, QObject
 
 HOST = "https://www.amazon.com/"
@@ -105,6 +106,72 @@ class NewTaskThreads(QObject):
             title = f"监控项 {self.asin} 添加失败。"
             self.sig_error.emit(self.row_index, self.asin, title, str(e))
             self.work_thread.quit()
+
+
+class TaskThread(QObject):
+    # 创建信号
+    sig_start = Signal(int)
+    sig_stop = Signal(int)
+    sig_counter = Signal(int)
+    sig_error_counter = Signal(int)
+
+    def __init__(self, row_index, asin, log_file_path, scheduler, thread, parent=None):
+        super(TaskThread, self).__init__(parent)
+        self.row_index = row_index
+        self.asin = asin
+        self.log_file_path = log_file_path
+        self.scheduler = scheduler
+        self.thread = thread
+
+    def start_task(self):
+        # 触发sig_start信号
+        self.sig_start.emit(self.row_index)
+
+        import time
+        import random
+        while True:
+            if self.scheduler.terminate:
+                self.sig_stop.emit(self.row_index)
+                # 自己的线程在thread_list中移除
+                self.scheduler.destroy_thread(self.thread)
+                return
+
+            try:
+                time.sleep(random.randint(1, 3))
+                self.sig_counter.emit(self.row_index)
+
+                with open(self.log_file_path, mode='a', encoding='utf-8') as f:
+                    f.write("日志\n")
+
+                # 监控动作
+                # 1. 根据型号访问，通过bs4获取数据
+                # 2. 获取到数据，价格是否小于预期
+                # 3. 发送报警邮件
+
+                time.sleep(5)
+            except Exception as e:
+                self.sig_error_counter.emit(self.row_index)
+
+
+class StopThread(QObject):
+    # 信号
+    sig_update = Signal(str)
+
+    def __init__(self, scheduler, parent=None):
+        super(StopThread, self).__init__(parent)
+        self.scheduler = scheduler
+
+    def run(self):
+        # 1. 检测线程数量
+        while True:
+            running_count = len(self.scheduler.thread_list)
+            self.sig_update.emit(f"正在终止({running_count})")
+
+            if running_count == 0:
+                break
+
+            time.sleep(1)
+
 
 if __name__ == "__main__":
     pass
