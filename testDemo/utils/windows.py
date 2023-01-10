@@ -1,36 +1,41 @@
-#!/usr/bin/env python
-# -*- coding: UTF-8 -*-
-'''
-=================================================
-@Project -> File   ：testDemo -> main
-@IDE    ：PyCharm
-@Author ：sky
-@Date   ：2023/1/9 22:31
-@Desc   ：
-==================================================
-'''
-import sys
+# !/usr/bin/env python
+# -*- coding:utf-8 -*-
+"""
+@FileName: dialog
+@Author  : sky
+@Date    : 2023/1/10 15:24
+@Desc    :
+
+"""
 from PySide6.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QApplication, QVBoxLayout, QHBoxLayout
-from PySide6.QtWidgets import QPushButton, QStackedWidget, QListWidget
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QPushButton, QLabel, QLineEdit, QTextEdit
+from PySide6.QtCore import Qt, Slot
 
 # 表格初始行数和列数
 TABLE_ROW = 0
 TABLE_COLUMN = 5
 
-class MainWindow(QWidget):
+class ManagerCenterWidget(QWidget):
     def __init__(self):
-        super(MainWindow, self).__init__()
-
-        self.setWindowTitle("XXXDemo")
-        self.resize(700, 400)
+        super(ManagerCenterWidget, self).__init__()
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
 
+        # 1. 创建头部搜索框
+        search_layout = QHBoxLayout()
+        self.search_line_edit = QLineEdit()
+        self.search_line_edit.setPlaceholderText("请输入搜索内容")
+        btn_search = QPushButton("搜索")
+        search_layout.addWidget(self.search_line_edit)
+        search_layout.addWidget(btn_search)
+
+        # 2. 创建中间表格
+        table_layout = QVBoxLayout()
         # 创建表格，设置列数，设置表头
         self.table_widget = QTableWidget(TABLE_ROW, TABLE_COLUMN)
+        table_layout.addWidget(self.table_widget)
         table_header = [
             {"text":"学号", "width":120},
             {"text":"姓名", "width":120},
@@ -45,10 +50,46 @@ class MainWindow(QWidget):
             self.table_widget.setHorizontalHeaderItem(index, item)
             self.table_widget.setColumnWidth(index, info['width'])
 
-        layout.addWidget(self.table_widget)
-        self.setLayout(layout)
-
         self.init_table_data()
+
+        # 3. 创建翻页框
+        next_layout = QHBoxLayout()
+        btn_header_page = QPushButton("首页")
+        btn_previous_page = QPushButton("上一页")
+        btn_next_page = QPushButton("下一页")
+        btn_last_page = QPushButton("尾页")
+        self.number_label = QLabel("0/0")
+        self.page_number_line_edit = QLineEdit()
+        self.page_number_line_edit.setPlaceholderText("页数")
+        btn_skip = QPushButton("跳转")
+        next_layout.addStretch()
+        next_layout.addWidget(btn_header_page)
+        next_layout.addWidget(btn_previous_page)
+        next_layout.addWidget(self.number_label)
+        next_layout.addWidget(btn_next_page)
+        next_layout.addWidget(btn_last_page)
+        next_layout.addWidget(self.page_number_line_edit)
+        next_layout.addWidget(btn_skip)
+        # next_layout.addStretch()
+
+        # 4. 创建底部菜单栏
+        footer_layout = QHBoxLayout()
+        self.status_label = QLabel("状态")
+        btn_add = QPushButton("添加")
+        btn_import = QPushButton("导入")
+        btn_export = QPushButton("导出")
+        footer_layout.addWidget(self.status_label)
+        footer_layout.addStretch()
+        footer_layout.addWidget(btn_add)
+        footer_layout.addWidget(btn_import)
+        footer_layout.addWidget(btn_export)
+
+        layout.addLayout(search_layout)
+        layout.addLayout(table_layout)
+        layout.addLayout(next_layout)
+        layout.addLayout(footer_layout)
+
+        self.setLayout(layout)
 
     def init_table_data(self):
         table_data = [
@@ -71,7 +112,6 @@ class MainWindow(QWidget):
             self.add_tableItem_pushButton(current_row_count, TABLE_COLUMN-1)
 
             current_row_count += 1
-
 
     def add_tableItem_pushButton(self, row:int, column:int):
         """
@@ -120,13 +160,18 @@ class MainWindow(QWidget):
             self.table_widget.selectRow(row)
             print(row)
 
+class DataCenterWidget(QWidget):
+    def __init__(self):
+        super(DataCenterWidget, self).__init__()
+        self.init_ui()
 
-def main():
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    app.exec()
+    def init_ui(self):
+        layout = QVBoxLayout()
 
+        self.txt_edit = QTextEdit()
+        layout.addWidget(self.txt_edit)
+
+        self.setLayout(layout)
 
 if __name__ == "__main__":
-    main()
+    pass
