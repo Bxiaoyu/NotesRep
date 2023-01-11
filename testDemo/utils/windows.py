@@ -8,7 +8,8 @@
 
 """
 from PySide6.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QApplication, QVBoxLayout, QHBoxLayout
-from PySide6.QtWidgets import QPushButton, QLabel, QLineEdit, QTextEdit
+from PySide6.QtWidgets import QPushButton, QLabel, QLineEdit, QTextEdit, QDialog, QMenu, QMessageBox
+from PySide6.QtGui import QAction
 from PySide6.QtCore import Qt, Slot
 
 # 表格初始行数和列数
@@ -50,6 +51,7 @@ class ManagerCenterWidget(QWidget):
             self.table_widget.setHorizontalHeaderItem(index, item)
             self.table_widget.setColumnWidth(index, info['width'])
 
+
         self.init_table_data()
 
         # 3. 创建翻页框
@@ -90,6 +92,10 @@ class ManagerCenterWidget(QWidget):
         layout.addLayout(footer_layout)
 
         self.setLayout(layout)
+
+        # 5. 设置右键菜单功能
+        self.table_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table_widget.customContextMenuRequested.connect(self.event_table_right_mouse_menu)
 
     def init_table_data(self):
         table_data = [
@@ -158,7 +164,75 @@ class ManagerCenterWidget(QWidget):
             # 获取按钮所在的行号
             row = self.table_widget.indexAt(button.parent().pos()).row()
             self.table_widget.selectRow(row)
-            print(row)
+
+            dialog = ModifyDialog("")
+            dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+            dialog.exec()
+
+    def event_table_right_mouse_menu(self, pos):
+        """
+        右键菜单显示事件
+        :param pos:
+        :return:
+        """
+        # 1. 获取所有选中的行和所有选中的单元格
+        selected_row_list = self.table_widget.selectionModel().selectedRows()
+        selected_row_list.reverse()  # 删除操作时要对行数组进行反转，否则序号会出问题
+        selected_item_list = self.table_widget.selectedItems()
+        if len(selected_item_list) == 0:  # 未选中任何内容则不执行操作
+            return
+
+        # 2. 创建右键菜单
+        menu = QMenu()
+        copy_action = QAction("复制")
+        delete_action = QAction("删除")
+        # 根据是否有选中行来设置删除菜单的是否可用
+        delete_action.setEnabled(False) if len(selected_row_list) <= 0 else delete_action.setEnabled(True)
+        menu.addAction(copy_action)
+        menu.addAction(delete_action)
+
+        # 3. 选中了哪个操作
+        action = menu.exec(self.table_widget.mapToGlobal(pos))
+
+        if action == copy_action:
+            # 将选中的单元格内容复制到剪贴板
+            clipboard = QApplication.clipboard()
+
+            # 选择范围
+            selected_count = len(self.table_widget.selectedRanges())
+            top_row = -1
+            bottom_row = -1
+            left_col = -1
+            right_col = -1
+            for i in range(0, selected_count):
+                top_row = self.table_widget.selectedRanges()[i].topRow()
+                bottom_row = self.table_widget.selectedRanges()[i].bottomRow()
+                left_col = self.table_widget.selectedRanges()[i].leftColumn()
+                right_col = self.table_widget.selectedRanges()[i].rightColumn()
+
+
+            # 组装数据格式
+            tmp_str = ''
+            for i in range(top_row, bottom_row+1):
+                for j in range(left_col, right_col+1):
+                    if self.table_widget.item(i, j):
+                        txt = self.table_widget.item(i,j).text()
+                        tmp_str += txt
+                        tmp_str += '\t'
+                tmp_str = tmp_str[:len(tmp_str)-1]  # 去除最后一个字符
+                tmp_str += '\n'
+            clipboard.setText(tmp_str)
+
+
+
+        if action == delete_action:
+            # 删除选中的行
+            ret = QMessageBox.question(self, "提示", "确认删除?", QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+
+            if ret == QMessageBox.StandardButton.Ok: # 确认删除
+                for rowItem in selected_row_list:
+                    self.table_widget.removeRow(rowItem.row())
+
 
 class DataCenterWidget(QWidget):
     def __init__(self):
@@ -172,6 +246,62 @@ class DataCenterWidget(QWidget):
         layout.addWidget(self.txt_edit)
 
         self.setLayout(layout)
+        
+        
+class ModifyDialog(QDialog):
+    def __init__(self, window:QWidget, *args, **kwargs):
+        super(ModifyDialog, self).__init__(*args, **kwargs)
+        self.window = window
+
+        self.setWindowTitle("信息更改")
+        self.resize(300, 270)
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        table_layout = QVBoxLayout()
+        account_label = QLabel("账号:")
+        account_line_edit = QLineEdit()
+        name_label = QLabel("姓名:")
+        name_line_edit = QLineEdit()
+        gender_label = QLabel("性别:")
+        gender_line_edit = QLineEdit()
+        contact_label = QLabel("联系方式：")
+        contact_line_edit = QLineEdit()
+        table_layout.addWidget(account_label)
+        table_layout.addWidget(account_line_edit)
+        table_layout.addWidget(name_label)
+        table_layout.addWidget(name_line_edit)
+        table_layout.addWidget(gender_label)
+        table_layout.addWidget(gender_line_edit)
+        table_layout.addWidget(contact_label)
+        table_layout.addWidget(contact_line_edit)
+
+        footer_layout = QHBoxLayout()
+        btn_close = QPushButton("关闭")
+        btn_close.clicked.connect(self.event_close_click)
+        btn_save = QPushButton("保存")
+        btn_close.clicked.connect(self.event_save_click)
+        footer_layout.addStretch()
+        footer_layout.addWidget(btn_close)
+        footer_layout.addWidget(btn_save)
+
+        layout.addLayout(table_layout)
+        layout.addLayout(footer_layout)
+
+        self.setLayout(layout)
+
+    def event_close_click(self):
+        """
+        关闭窗口
+        :return:
+        """
+        self.close()
+
+    def event_save_click(self):
+        pass
+
 
 if __name__ == "__main__":
     pass
