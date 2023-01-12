@@ -127,6 +127,18 @@ def main():
     window.show()
     app.exec()
 
+def main_2():
+    import sqlite3
+    import os
+    conn = sqlite3.connect(os.path.join('db', 'testdb.db'))
+
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT * FROM t_student_info WHERE id={2};")
+    res = cursor.fetchall()
+    for item in res:
+        print(item)
+    conn.close()
+
 
 if __name__ == "__main__":
-    main()
+    main_2()

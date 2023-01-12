@@ -15,6 +15,10 @@ class SqlManager(object):
     def __init__(self, database:str):
         super(SqlManager, self).__init__()
         self._database = database
+        self._conn = None
+
+        # 建立连接
+        self._connect()
 
     def _connect(self):
         try:
@@ -24,8 +28,6 @@ class SqlManager(object):
         except Exception as e:
             print(e)
             return ResponseStatus.ERROR
-        finally:
-            self._conn.close()
 
     def update(self, sql:str):
         """
@@ -33,6 +35,7 @@ class SqlManager(object):
         :param sql: sql语句
         :return:
         """
+        assert self._conn != None
         try:
             curOjb = self._conn.cursor()
             curOjb.execute(sql)
@@ -50,20 +53,23 @@ class SqlManager(object):
         :param sql: sql语句
         :return:
         """
+        assert self._conn != None
         try:
             curObj = self._conn.cursor()
             curObj.execute(sql)
             self._conn.commit()
             return curObj.fetchall()
         except Exception as e:
-            return None
+            return []
 
     def close(self):
         if self._conn != None:
             self._conn.close()
+            print("数据库关闭")
 
     def __del__(self):
         self.close()
+
 
 
 DATABASE_MANAGER = SqlManager(os.path.join('db', 'testdb.db'))

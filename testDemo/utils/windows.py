@@ -8,9 +8,9 @@
 
 """
 from PySide6.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QApplication, QVBoxLayout, QHBoxLayout
-from PySide6.QtWidgets import QPushButton, QLabel, QLineEdit, QTextEdit, QDialog, QMenu, QMessageBox
+from PySide6.QtWidgets import QPushButton, QLabel, QLineEdit, QTextEdit, QDialog, QMenu, QMessageBox, QComboBox
 from PySide6.QtGui import QAction
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 
 # 表格初始行数和列数
 TABLE_ROW = 0
@@ -78,6 +78,7 @@ class ManagerCenterWidget(QWidget):
         footer_layout = QHBoxLayout()
         self.status_label = QLabel("状态")
         btn_add = QPushButton("添加")
+        btn_add.clicked.connect(self.event_add_click)
         btn_import = QPushButton("导入")
         btn_export = QPushButton("导出")
         footer_layout.addWidget(self.status_label)
@@ -97,6 +98,30 @@ class ManagerCenterWidget(QWidget):
         self.table_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table_widget.customContextMenuRequested.connect(self.event_table_right_mouse_menu)
 
+    def insert_table_row(self, row_index:int):
+        """
+        表格插入一行
+        :param row_index:
+        :return:
+        """
+        self.table_widget.insertRow(row_index)
+        # 添加操作单元格按钮（修改、删除）
+        self.add_tableItem_pushButton(row_index, TABLE_COLUMN - 1)
+
+    def insert_table_row_data(self, row:int, column:int, content:str):
+        """
+        插入单元格数据
+        :param row:
+        :param column:
+        :param data_list:
+        :return:
+        """
+        cell = QTableWidgetItem(content)
+        self.table_widget.setItem(row, column, cell)
+        # 设置的单元格不可更改
+        cell.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+
+
     def init_table_data(self):
         table_data = [
             ["1001", "张三", "男", "18317881856"],
@@ -107,15 +132,9 @@ class ManagerCenterWidget(QWidget):
 
         current_row_count = self.table_widget.rowCount()
         for item_list in table_data:
-            self.table_widget.insertRow(current_row_count)
+            self.insert_table_row(current_row_count)
             for index , ele in enumerate(item_list):
-                cell = QTableWidgetItem(str(ele))
-                self.table_widget.setItem(current_row_count, index, cell)
-                # 设置单元格不可更改
-                cell.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
-
-            # 添加操作单元格按钮（修改、删除）
-            self.add_tableItem_pushButton(current_row_count, TABLE_COLUMN-1)
+                self.insert_table_row_data(current_row_count, index, ele)
 
             current_row_count += 1
 
@@ -127,7 +146,7 @@ class ManagerCenterWidget(QWidget):
         :return:
         """
         btn_modify = QPushButton("修改")
-        btn_modify.clicked.connect(self.event_modify_click)
+        btn_modify.clicked.connect(self.event_table_modify_click)
         btn_modify.setStyleSheet("""text-align: center;
         background-color: NavajoWhite;
         height:30px;
@@ -135,7 +154,7 @@ class ManagerCenterWidget(QWidget):
         """)
 
         btn_delete = QPushButton("删除")
-        btn_delete.clicked.connect(self.event_delete_click)
+        btn_delete.clicked.connect(self.event_table_delete_click)
         btn_delete.setStyleSheet("""text-align: center;
         background-color: LightCoral;
         height:30px;
@@ -150,7 +169,7 @@ class ManagerCenterWidget(QWidget):
         cell_widget.setLayout(opt_layout)
         self.table_widget.setCellWidget(row, column, cell_widget)
 
-    def event_delete_click(self):
+    def event_table_delete_click(self):
         button = self.sender()
         if button:
             # 获取按钮所在的行号
@@ -158,16 +177,28 @@ class ManagerCenterWidget(QWidget):
             self.table_widget.removeRow(row)
             self.table_widget.selectRow(row)
 
-    def event_modify_click(self):
+    def event_table_modify_click(self):
         button = self.sender()
         if button:
             # 获取按钮所在的行号
             row = self.table_widget.indexAt(button.parent().pos()).row()
             self.table_widget.selectRow(row)
 
-            dialog = ModifyDialog("")
+            dialog = ModifyDialog(self, row)
+            dialog.sig_update.connect(self.event_start_update)
             dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
             dialog.exec()
+
+    def event_add_click(self):
+        """
+        添加事件响应函数
+        :return:
+        """
+        # 获取表格的所有行
+        row_count = self.table_widget.rowCount()
+        dialog = AddDialog(self, row_count)
+        dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+        dialog.exec()
 
     def event_table_right_mouse_menu(self, pos):
         """
@@ -233,6 +264,27 @@ class ManagerCenterWidget(QWidget):
                 for rowItem in selected_row_list:
                     self.table_widget.removeRow(rowItem.row())
 
+    @Slot(str, str, int, str)
+    def event_start_update(self, account:str, name:str, gender:int, contact:str):
+        """
+        接收线程执行消息
+        :param status:
+        :return:
+        """
+        from utils.threads import SqlUpdateTaskThread
+        sql = f"INSERT INTO t_student_info (account,name,gender,phone) VALUES('{account}','{name}',{gender},'{contact}');"
+        newTask = SqlUpdateTaskThread(sql, self)
+        newTask.sig_finished.connect(self.message_callback)
+        newTask.start()
+
+    @Slot(str)
+    def message_callback(self, message:str):
+        """
+        显示操作反馈信息
+        :param message:
+        :return:
+        """
+        self.status_label.setText(message)
 
 class DataCenterWidget(QWidget):
     def __init__(self):
@@ -249,9 +301,18 @@ class DataCenterWidget(QWidget):
         
         
 class ModifyDialog(QDialog):
-    def __init__(self, window:QWidget, *args, **kwargs):
+    # 信号
+    sig_update = Signal(str, str, int, str)
+
+    def __init__(self, window:ManagerCenterWidget, row_index:int, *args, **kwargs):
         super(ModifyDialog, self).__init__(*args, **kwargs)
         self.window = window
+        self.row_index = row_index
+
+        self._account = ""
+        self._name = ""
+        self._gender = -1
+        self._contact = ""
 
         self.setWindowTitle("信息更改")
         self.resize(300, 270)
@@ -262,27 +323,123 @@ class ModifyDialog(QDialog):
 
         table_layout = QVBoxLayout()
         account_label = QLabel("账号:")
-        account_line_edit = QLineEdit()
+        self.account_line_edit = QLineEdit()
         name_label = QLabel("姓名:")
-        name_line_edit = QLineEdit()
+        self.name_line_edit = QLineEdit()
         gender_label = QLabel("性别:")
-        gender_line_edit = QLineEdit()
+        self.gender_combox = QComboBox()
+        self.gender_combox.addItems(["男","女"])
         contact_label = QLabel("联系方式：")
-        contact_line_edit = QLineEdit()
+        self.contact_line_edit = QLineEdit()
         table_layout.addWidget(account_label)
-        table_layout.addWidget(account_line_edit)
+        table_layout.addWidget(self.account_line_edit)
         table_layout.addWidget(name_label)
-        table_layout.addWidget(name_line_edit)
+        table_layout.addWidget(self.name_line_edit)
         table_layout.addWidget(gender_label)
-        table_layout.addWidget(gender_line_edit)
+        table_layout.addWidget(self.gender_combox)
         table_layout.addWidget(contact_label)
-        table_layout.addWidget(contact_line_edit)
+        table_layout.addWidget(self.contact_line_edit)
 
         footer_layout = QHBoxLayout()
         btn_close = QPushButton("关闭")
         btn_close.clicked.connect(self.event_close_click)
         btn_save = QPushButton("保存")
-        btn_close.clicked.connect(self.event_save_click)
+        btn_save.clicked.connect(self.event_save_click)
+        footer_layout.addStretch()
+        footer_layout.addWidget(btn_close)
+        footer_layout.addWidget(btn_save)
+
+        layout.addLayout(table_layout)
+        layout.addLayout(footer_layout)
+
+        self.setLayout(layout)
+
+        self.init_selected_data()
+
+    def init_selected_data(self):
+        """
+        初始化对话框数据
+        :return:
+        """
+        self._account = self.window.table_widget.item(self.row_index, 0).text().strip()
+        self.account_line_edit.setText(self._account)
+        self._name = self.window.table_widget.item(self.row_index, 1).text().strip()
+        self.name_line_edit.setText(self._name)
+        gender = self.window.table_widget.item(self.row_index, 2).text().strip()
+        if gender == "男":
+            self._gender = 0
+            self.gender_combox.setCurrentIndex(self._gender)
+        else:
+            self._gender = 1
+            self.gender_combox.setCurrentIndex(self._gender)
+        self._contact = self.window.table_widget.item(self.row_index, 3).text().strip()
+        self.contact_line_edit.setText(self._contact)
+
+    def event_close_click(self):
+        """
+        关闭窗口
+        :return:
+        """
+        self.close()
+
+    def event_save_click(self):
+        account = self.account_line_edit.text().strip()
+        name = self.name_line_edit.text().strip()
+        gender = self.gender_combox.currentIndex()
+        contact = self.contact_line_edit.text().strip()
+
+        # 有数据改动才写入更新数据
+        if account != self._account or name != self._name or gender != self._gender or contact != self._contact:
+            # 更新表格数据
+            self.window.table_widget.item(self.row_index, 0).setText(account)
+            self.window.table_widget.item(self.row_index, 1).setText(name)
+            self.window.table_widget.item(self.row_index, 2).setText("男" if gender == 0 else "女")
+            self.window.table_widget.item(self.row_index, 3).setText(contact)
+
+            self.sig_update.emit(account, name, gender, contact)
+
+        self.close()
+
+
+class AddDialog(QDialog):
+    def __init__(self, window:ManagerCenterWidget, row_index:int, *args, **kwargs):
+        super(AddDialog, self).__init__(*args, **kwargs)
+        self._window = window
+        self._row_index = row_index
+
+        self.setWindowTitle("添加人员")
+        self.resize(300, 270)
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        table_layout = QVBoxLayout()
+        account_label = QLabel("账号:")
+        self.account_line_edit = QLineEdit()
+        name_label = QLabel("姓名:")
+        self.name_line_edit = QLineEdit()
+        gender_label = QLabel("性别:")
+        self.gender_combox = QComboBox()
+        self.gender_combox.addItems(["男","女"])
+        contact_label = QLabel("联系方式：")
+        self.contact_line_edit = QLineEdit()
+        table_layout.addWidget(account_label)
+        table_layout.addWidget(self.account_line_edit)
+        table_layout.addWidget(name_label)
+        table_layout.addWidget(self.name_line_edit)
+        table_layout.addWidget(gender_label)
+        table_layout.addWidget(self.gender_combox)
+        table_layout.addWidget(contact_label)
+        table_layout.addWidget(self.contact_line_edit)
+
+        footer_layout = QHBoxLayout()
+        self._status_label = QLabel("状态")
+        btn_close = QPushButton("关闭")
+        btn_close.clicked.connect(self.event_close_click)
+        btn_save = QPushButton("保存")
+        btn_save.clicked.connect(self.event_save_click)
+        footer_layout.addWidget(self._status_label)
         footer_layout.addStretch()
         footer_layout.addWidget(btn_close)
         footer_layout.addWidget(btn_save)
@@ -294,13 +451,46 @@ class ModifyDialog(QDialog):
 
     def event_close_click(self):
         """
-        关闭窗口
+        关闭且不保存
         :return:
         """
         self.close()
 
     def event_save_click(self):
-        pass
+        """
+        保存数据
+        :return:
+        """
+        account = self.account_line_edit.text().strip()
+        name = self.name_line_edit.text().strip()
+        gender = self.gender_combox.currentIndex()
+        contact = self.contact_line_edit.text().strip()
+
+        if account != "" and name != "" and gender != None and contact != "":
+            self._window.insert_table_row(self._row_index)
+            self._window.insert_table_row_data(self._row_index, 0, account)
+            self._window.insert_table_row_data(self._row_index, 1, name)
+            self._window.insert_table_row_data(self._row_index, 2, self.gender_combox.currentText().strip())
+            self._window.insert_table_row_data(self._row_index, 3, contact)
+
+            from utils.threads import SqlUpdateTaskThread
+            sql = f"INSERT INTO t_student_info (account,name,gender,phone) VALUES('{account}','{name}',{gender},'{contact}');"
+            newTask = SqlUpdateTaskThread(sql, self)
+            newTask.sig_finished.connect(self.message_callback)
+            newTask.start()
+
+            self.account_line_edit.clear()
+            self.name_line_edit.clear()
+            self.contact_line_edit.clear()
+
+        else:
+            QMessageBox.warning(self, "警告", "输入内容不能为空!")
+
+
+    @Slot(str)
+    def message_callback(self, message:str):
+        self._status_label.setText(message.strip())
+        self._window.status_label.setText(message.strip())
 
 
 if __name__ == "__main__":
