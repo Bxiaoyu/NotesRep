@@ -19,7 +19,31 @@ TABLE_COLUMN = 5
 class ManagerCenterWidget(QWidget):
     def __init__(self):
         super(ManagerCenterWidget, self).__init__()
+        # 1. 初始化界面
         self.init_ui()
+        # 2. 读取数据库数据，并更新到表格
+        self._read_data_from_db()
+
+    def _read_data_from_db(self):
+        """
+        从数据库读取数据
+        :return:
+        """
+        from utils.threads import SqlSelectTaskThread
+        sql = f"SELECT account,name,gender,phone FROM t_student_info;"
+        newTask = SqlSelectTaskThread(sql, self)
+        newTask.sig_finished.connect(self.event_receive_data)
+        newTask.start()
+
+    @Slot(list)
+    def event_receive_data(self, data_list:list):
+        """
+        接收数据库数据并更新到表格
+        :param data_list: 数据列表
+        :return:
+        """
+        self.init_table_data(data_list)
+
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -38,7 +62,7 @@ class ManagerCenterWidget(QWidget):
         self.table_widget = QTableWidget(TABLE_ROW, TABLE_COLUMN)
         table_layout.addWidget(self.table_widget)
         table_header = [
-            {"text":"学号", "width":120},
+            {"text":"账号", "width":120},
             {"text":"姓名", "width":120},
             {"text":"性别", "width":60},
             {"text":"联系方式", "width":180},
@@ -50,9 +74,6 @@ class ManagerCenterWidget(QWidget):
             item.setText(info['text'])
             self.table_widget.setHorizontalHeaderItem(index, item)
             self.table_widget.setColumnWidth(index, info['width'])
-
-
-        self.init_table_data()
 
         # 3. 创建翻页框
         next_layout = QHBoxLayout()
@@ -122,18 +143,18 @@ class ManagerCenterWidget(QWidget):
         cell.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
 
 
-    def init_table_data(self):
-        table_data = [
-            ["1001", "张三", "男", "18317881856"],
-            ["1002", "韩梅梅", "女", "15980537345"],
-            ["1003", "李明", "男", "13988037865"],
-            ["1004", "苏小雨", "女", "17888679542"],
-        ]
-
+    def init_table_data(self, data_list):
+        """
+        初始化表格数据
+        :param data_list: 数据列表
+        :return:
+        """
         current_row_count = self.table_widget.rowCount()
-        for item_list in table_data:
+        for item_list in data_list:
             self.insert_table_row(current_row_count)
             for index , ele in enumerate(item_list):
+                if index == 2:
+                    ele = "男" if ele == 1 else "女"
                 self.insert_table_row_data(current_row_count, index, ele)
 
             current_row_count += 1
@@ -264,15 +285,15 @@ class ManagerCenterWidget(QWidget):
                 for rowItem in selected_row_list:
                     self.table_widget.removeRow(rowItem.row())
 
-    @Slot(str, str, int, str)
-    def event_start_update(self, account:str, name:str, gender:int, contact:str):
+    @Slot(str, str, str, int, str)
+    def event_start_update(self, old_account:str, account:str, name:str, gender:int, contact:str):
         """
         接收线程执行消息
         :param status:
         :return:
         """
         from utils.threads import SqlUpdateTaskThread
-        sql = f"INSERT INTO t_student_info (account,name,gender,phone) VALUES('{account}','{name}',{gender},'{contact}');"
+        sql = f"UPDATE t_student_info SET account='{account}',name='{name}',gender={gender},phone='{contact}' WHERE account='{old_account}';"
         newTask = SqlUpdateTaskThread(sql, self)
         newTask.sig_finished.connect(self.message_callback)
         newTask.start()
@@ -302,7 +323,7 @@ class DataCenterWidget(QWidget):
         
 class ModifyDialog(QDialog):
     # 信号
-    sig_update = Signal(str, str, int, str)
+    sig_update = Signal(str, str, str, int, str)
 
     def __init__(self, window:ManagerCenterWidget, row_index:int, *args, **kwargs):
         super(ModifyDialog, self).__init__(*args, **kwargs)
@@ -365,13 +386,11 @@ class ModifyDialog(QDialog):
         self.account_line_edit.setText(self._account)
         self._name = self.window.table_widget.item(self.row_index, 1).text().strip()
         self.name_line_edit.setText(self._name)
-        gender = self.window.table_widget.item(self.row_index, 2).text().strip()
-        if gender == "男":
-            self._gender = 0
-            self.gender_combox.setCurrentIndex(self._gender)
+        self._gender = self.window.table_widget.item(self.row_index, 2).text().strip()
+        if self._gender == "男":
+            self.gender_combox.setCurrentIndex(0)
         else:
-            self._gender = 1
-            self.gender_combox.setCurrentIndex(self._gender)
+            self.gender_combox.setCurrentIndex(1)
         self._contact = self.window.table_widget.item(self.row_index, 3).text().strip()
         self.contact_line_edit.setText(self._contact)
 
@@ -385,18 +404,18 @@ class ModifyDialog(QDialog):
     def event_save_click(self):
         account = self.account_line_edit.text().strip()
         name = self.name_line_edit.text().strip()
-        gender = self.gender_combox.currentIndex()
+        gender = 1 if self.gender_combox.currentText() == "男" else 0
         contact = self.contact_line_edit.text().strip()
 
         # 有数据改动才写入更新数据
-        if account != self._account or name != self._name or gender != self._gender or contact != self._contact:
+        if account != self._account or name != self._name or self.gender_combox.currentText().strip() != self._gender or contact != self._contact:
             # 更新表格数据
             self.window.table_widget.item(self.row_index, 0).setText(account)
             self.window.table_widget.item(self.row_index, 1).setText(name)
-            self.window.table_widget.item(self.row_index, 2).setText("男" if gender == 0 else "女")
+            self.window.table_widget.item(self.row_index, 2).setText(self.gender_combox.currentText().strip())
             self.window.table_widget.item(self.row_index, 3).setText(contact)
 
-            self.sig_update.emit(account, name, gender, contact)
+            self.sig_update.emit(self._account, account, name, gender, contact)
 
         self.close()
 
@@ -463,7 +482,7 @@ class AddDialog(QDialog):
         """
         account = self.account_line_edit.text().strip()
         name = self.name_line_edit.text().strip()
-        gender = self.gender_combox.currentIndex()
+        gender = 1 if self.gender_combox.currentText() == "男" else 0
         contact = self.contact_line_edit.text().strip()
 
         if account != "" and name != "" and gender != None and contact != "":

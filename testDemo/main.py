@@ -133,10 +133,11 @@ def main_2():
     conn = sqlite3.connect(os.path.join('db', 'testdb.db'))
 
     cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM t_student_info WHERE id={2};")
+    cursor.execute(f"SELECT * FROM t_student_info;")
     res = cursor.fetchall()
-    for item in res:
-        print(item)
+    print(res)
+    # for item in res:
+    #     print(item)
     conn.close()
 
 

@@ -23,7 +23,7 @@ class MainWindow(QWidget):
 
     def init_ui(self):
         self.setWindowTitle("xxx系统")
-        self.resize(750, 500)
+        self.resize(780, 500)
 
         self.contentWidget = QListWidget()
         self.contentWidget.setStyleSheet("background-color: NavajoWhite")
