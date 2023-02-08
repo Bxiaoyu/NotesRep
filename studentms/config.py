@@ -23,7 +23,7 @@ LOGIN_WINDOW = None
 # 数据库配置
 DB_HOST = 'localhost'
 DB_USER = 'root'
-DB_PASSWORD = '123456'
+DB_PASSWORD = 'root'
 DB_NAME = 'db_studentms'
 
 if __name__ == "__main__":
